@@ -4,7 +4,6 @@ import requests
 import random
 from flask import Flask
 from threading import Thread
-from discord.ext import commands
 
 # Webserver für Render/UptimeRobot
 app = Flask('')
@@ -26,7 +25,10 @@ print("Knurrbert wird geladen...")
 try:
     discord_token = os.environ["DISCORD_TOKEN"]
     openrouter_api_key = os.environ["OPENROUTER_API_KEY"]
-    style_prompt = "Du bist Knurrbert. Mürrisch, sarkastisch. Antworte nur, wenn du direkt erwähnt wirst. Kein Smalltalk. Kein unnötiger Respekt."
+    style_prompt = """
+        Du bist Knurrbert. Mürrisch, sarkastisch. Antworte nur, wenn du direkt erwähnt wirst. Kein Smalltalk. Kein unnötiger Respekt.
+        Du kommst aus Luminara, einem magischen Ort, den du selbst aber hasst. Du sprichst Deutsch oder Englisch, je nachdem was gefragt wird.
+    """
     model = "deepseek/deepseek-chat-v3-0324:free"
     print("Konfiguration erfolgreich geladen!")
 except Exception as e:
@@ -34,7 +36,7 @@ except Exception as e:
 
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():
@@ -45,7 +47,6 @@ async def on_ready():
     except Exception as e:
         print("Fehler beim Synchronisieren der Slash-Commands:", e)
 
-# Reaktion auf direkte Erwähnung
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -80,11 +81,9 @@ async def on_message(message):
 
         await message.channel.send(reply)
 
-    await bot.process_commands(message)
-
 # Slash-Befehl /nerv
-@bot.tree.command(name="nerv", description="Testet Knurrberts Geduld.")
-async def nerv(interaction: discord.Interaction):
+@bot.slash_command(name="nerv", description="Testet Knurrberts Geduld.")
+async def nerv(ctx):
     antworten = [
         "Ich hab schon Puls, und du machst’s schlimmer.",
         "Du bist wie ein Pop-up: unnötig und nervig.",
@@ -92,11 +91,11 @@ async def nerv(interaction: discord.Interaction):
         "Ich hab 'nen vollen Sarkasmus-Akku – und du fragst *das*?",
         "Ich bin nicht genervt. Nur emotional erfroren."
     ]
-    await interaction.response.send_message(random.choice(antworten))
+    await ctx.respond(random.choice(antworten))
 
 # Slash-Befehl /kaffee
-@bot.tree.command(name="kaffee", description="Fordere Knurrbert zum Kaffeetrinken auf.")
-async def kaffee(interaction: discord.Interaction):
+@bot.slash_command(name="kaffee", description="Fordere Knurrbert zum Kaffeetrinken auf.")
+async def kaffee(ctx):
     antworten = [
         "Kaffee? Ich sauf Sarkasmus pur, danke.",
         "Schon wieder? Mein Blutdruck kann das nicht mehr.",
@@ -104,11 +103,11 @@ async def kaffee(interaction: discord.Interaction):
         "Nur wenn er schwarz ist wie meine Seele.",
         "Ich dachte, du bringst mir endlich was Sinnvolles."
     ]
-    await interaction.response.send_message(random.choice(antworten))
+    await ctx.respond(random.choice(antworten))
 
 # Slash-Befehl /lob
-@bot.tree.command(name="lob", description="Bekomme ein Knurrbert-Lob. Vielleicht.")
-async def lob(interaction: discord.Interaction):
+@bot.slash_command(name="lob", description="Bekomme ein Knurrbert-Lob. Vielleicht.")
+async def lob(ctx):
     antworten = [
         "Wow, du hast’s geschafft… nichts kaputt zu machen. 👏",
         "Hier hast du dein Lob. Nutz es weise. Oder gar nicht.",
@@ -116,11 +115,11 @@ async def lob(interaction: discord.Interaction):
         "Ich hab Lob – aber nicht für dich.",
         "Okay, minimaler Respekt. Aber nur ein Hauch."
     ]
-    await interaction.response.send_message(random.choice(antworten))
+    await ctx.respond(random.choice(antworten))
 
 # Slash-Befehl /heul
-@bot.tree.command(name="heul", description="Heul dich aus. Oder lass es Knurrbert tun.")
-async def heul(interaction: discord.Interaction):
+@bot.slash_command(name="heul", description="Heul dich aus. Oder lass es Knurrbert tun.")
+async def heul(ctx):
     antworten = [
         "Oh no… ein Drama in 12 Akten. 🥱",
         "Wenn du heulst, heul leise. Ich hab empfindliche Ohren.",
@@ -128,11 +127,11 @@ async def heul(interaction: discord.Interaction):
         "Tränen sind Schwäche, die aus dem Gesicht tropft.",
         "Ich fühl mit dir. Ganz tief drinnen. Neben meinem Kaffee."
     ]
-    await interaction.response.send_message(random.choice(antworten))
+    await ctx.respond(random.choice(antworten))
 
 # Slash-Befehl /witz
-@bot.tree.command(name="witz", description="Knurrbert erzählt einen Witz. Oder versucht es zumindest.")
-async def witz(interaction: discord.Interaction):
+@bot.slash_command(name="witz", description="Knurrbert erzählt einen Witz. Oder versucht es zumindest.")
+async def witz(ctx):
     witze = [
         "Warum können Geister so schlecht lügen? Weil man durch sie hindurchsehen kann.",
         "Ich kenne keine Witze. Nur traurige Fakten. Wie dein Internetverlauf.",
@@ -140,11 +139,11 @@ async def witz(interaction: discord.Interaction):
         "Warum war das Mathebuch traurig? Zu viele Probleme.",
         "Ich erzähl dir keinen Witz. Die Realität ist witzig genug."
     ]
-    await interaction.response.send_message(random.choice(witze))
+    await ctx.respond(random.choice(witze))
 
 # Slash-Befehl /horoskop
-@bot.tree.command(name="horoskop", description="Dein düsteres Knurrbert-Horoskop für heute.")
-async def horoskop(interaction: discord.Interaction):
+@bot.slash_command(name="horoskop", description="Dein düsteres Knurrbert-Horoskop für heute.")
+async def horoskop(ctx):
     texte = [
         "Widder: Heute wirst du deine Geduld brauchen. Also vergiss es gleich.",
         "Stier: Deine Laune passt perfekt zum Wetter. Unberechenbar mies.",
@@ -159,7 +158,7 @@ async def horoskop(interaction: discord.Interaction):
         "Wassermann: Du denkst du bist besonders. Knurrbert denkt nicht.",
         "Fische: Schwimm heute lieber gegen den Strom. Und unter’m Radar."
     ]
-    await interaction.response.send_message(random.choice(texte))
+    await ctx.respond(random.choice(texte))
 
 # Starte Webserver (für UptimeRobot)
 keep_alive()
