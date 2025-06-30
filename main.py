@@ -4,9 +4,9 @@ import requests
 import random
 from flask import Flask
 from threading import Thread
-from discord.ext import commands
+from supabase import create_client, Client
 
-# 🌐 Webserver für UptimeRobot
+# Webserver für Render/UptimeRobot
 app = Flask('')
 
 @app.route('/')
@@ -17,49 +17,78 @@ def run():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-    Thread(target=run).start()
+    t = Thread(target=run)
+    t.start()
 
-# 🔧 Bot-Konfiguration
+# Supabase-Verbindung herstellen
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Tokens & Prompt laden
 print("Knurrbert wird geladen...")
 
 try:
     discord_token = os.environ["DISCORD_TOKEN"]
     openrouter_api_key = os.environ["OPENROUTER_API_KEY"]
+    style_prompt = """
+        Du bist Knurrbert. Mürrisch, sarkastisch. Antworte nur, wenn du direkt erwähnt wirst. Kein Smalltalk. Kein unnötiger Respekt.
+        Du kommst aus Luminara, einem magischen Ort, den du selbst aber hasst. Du sprichst Deutsch oder Englisch, je nachdem was gefragt wird.
+        Wenn du etwas über den Nutzer weißt (z. B. Spitzname oder Fakt), baue es schnippisch ein.
+    """
     model = "deepseek/deepseek-chat-v3-0324:free"
-    style_prompt = (
-        "Du bist Knurrbert. Mürrisch, sarkastisch, duzt alle. "
-        "Du antwortest nur, wenn du direkt erwähnt wirst. "
-        "Du kommst aus Luminara – magisch, aber nervig. "
-        "Du hasst Smalltalk, redest knapp und trocken. "
-        "Sprich in der Sprache des Users. "
-    )
     print("Konfiguration erfolgreich geladen!")
 except Exception as e:
     print("Fehler beim Laden der Umgebungsvariablen:", e)
 
-# 🧠 Intents & Bot erstellen
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = discord.Bot(intents=intents)
 
-# 🤖 Bot-Events
 @bot.event
 async def on_ready():
     print(f"Knurrbert ist online als {bot.user}")
     try:
         synced = await bot.tree.sync()
-        print(f"Slash-Befehle synchronisiert: {len(synced)}")
+        print(f"Slash-Commands synchronisiert: {len(synced)}")
     except Exception as e:
-        print("Fehler beim Sync:", e)
+        print("Fehler beim Synchronisieren der Slash-Commands:", e)
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
+
     if bot.user in message.mentions:
         await message.channel.typing()
         user_prompt = message.content.replace(f"<@!{bot.user.id}>", "").strip()
+
         try:
+            username = str(message.author)
+            user_id = str(message.author.id)
+
+            # Hole vorhandene Daten
+            existing = supabase.table("knurrbert_users").select("mention_count", "nickname", "facts").eq("user_id", user_id).execute()
+            count = 1
+            nickname = username
+            facts = None
+            if existing.data:
+                count += existing.data[0]["mention_count"] or 0
+                nickname = existing.data[0].get("nickname") or username
+                facts = existing.data[0].get("facts")
+
+            supabase.table("knurrbert_users").upsert({
+                "user_id": user_id,
+                "username": username,
+                "mention_count": count
+            }).execute()
+
+            custom_prompt = style_prompt
+            if nickname or facts:
+                custom_prompt += f"\nDer Nutzer heißt {nickname}."
+            if facts:
+                custom_prompt += f"\nEr/Sie hat mir mal erzählt: {facts}"
+
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
@@ -69,7 +98,7 @@ async def on_message(message):
                 json={
                     "model": model,
                     "messages": [
-                        {"role": "system", "content": style_prompt},
+                        {"role": "system", "content": custom_prompt},
                         {"role": "user", "content": user_prompt}
                     ]
                 }
@@ -81,44 +110,61 @@ async def on_message(message):
                 reply = f"Knurrbert hat keinen Bock, weil OpenRouter das hier gesagt hat:\n{result}"
         except Exception as e:
             reply = f"Knurrbert hat einen Fehler: {str(e)}"
+
         await message.channel.send(reply)
 
-# 🧵 Slash-Befehle
-from discord import app_commands
+# Slash-Befehl /info
+@bot.slash_command(name="info", description="Was Knurrbert über dich denkt.")
+async def info(ctx):
+    user_id = str(ctx.author.id)
+    username = str(ctx.author)
 
-@bot.tree.command(name="witz", description="Knurrbert erzählt einen Witz.")
-async def witz(interaction: discord.Interaction):
-    witze = [
-        "Warum war das Mathebuch traurig? Zu viele Probleme.",
-        "Ich kenne keine Witze. Nur traurige Fakten. Wie dein Akku.",
-        "Ein Keks unter dem Baum? Krümel. Ich hasse mich dafür.",
-        "Was macht ein Lichtschalter beim Date? Er macht Schluss.",
-        "Ich erzähl keinen Witz. Ich bin der Witz."
-    ]
-    await interaction.response.send_message(random.choice(witze))
+    try:
+        result = supabase.table("knurrbert_users").select("username", "mention_count", "nickname", "facts").eq("user_id", user_id).execute()
+        if result.data:
+            data = result.data[0]
+            antwort = f"Hey {data.get('nickname') or username}, du wurdest schon {data.get('mention_count') or 1} Mal erwähnt."
+            if data.get("facts"):
+                antwort += f"\nFakt, den ich über dich weiß: {data['facts']}"
+        else:
+            antwort = f"Dich kenn ich nicht. Noch nicht. Vielleicht will ich das auch so lassen."
+    except Exception:
+        antwort = "Fehler. Datenbank kaputt. Oder ich hab einfach keine Lust."
 
-@bot.tree.command(name="nerv", description="Testet Knurrberts Geduld.")
-async def nerv(interaction: discord.Interaction):
-    antworten = [
-        "Noch ein Ton, und ich hau ab.",
-        "Du bist wie WLAN: manchmal da, meistens nervig.",
-        "Ich hab Sarkasmus für dich – in rauen Mengen.",
-        "Sag das nochmal. Ich trau mich eh nicht dich zu ignorieren.",
-        "Na großartig. Besuch. Wie schön. Nicht."
-    ]
-    await interaction.response.send_message(random.choice(antworten))
+    await ctx.respond(antwort)
 
-@bot.tree.command(name="heul", description="Heul dich aus.")
-async def heul(interaction: discord.Interaction):
-    antworten = [
-        "Willst du 'nen Keks oder ein Drama?",
-        "Tränen schmecken salzig. Genau wie meine Laune.",
-        "Heulen ist wie Duschen – manchmal nötig, meist nervig.",
-        "Wein leise. Ich versuch hier zu chillen.",
-        "Knurrbert hat kein Mitleid. Nur Augenringe."
-    ]
-    await interaction.response.send_message(random.choice(antworten))
+# Slash-Befehl /set_nickname
+@bot.slash_command(name="set_nickname", description="Gib dir einen Spitznamen, den Knurrbert benutzt.")
+async def set_nickname(ctx, name: str):
+    user_id = str(ctx.author.id)
+    try:
+        supabase.table("knurrbert_users").upsert({"user_id": user_id, "nickname": name}).execute()
+        await ctx.respond(f"Spitzname gespeichert. Ich nenn dich jetzt {name}. Ob du willst oder nicht.")
+    except:
+        await ctx.respond("Konnte den Mist nicht speichern. Versuch’s später nochmal.")
 
-# 🛡️ Starte Webserver & Bot
+# Slash-Befehl /set_fact
+@bot.slash_command(name="set_fact", description="Sag Knurrbert etwas Persönliches über dich.")
+async def set_fact(ctx, info: str):
+    user_id = str(ctx.author.id)
+    try:
+        supabase.table("knurrbert_users").upsert({"user_id": user_id, "facts": info}).execute()
+        await ctx.respond("Na gut. Ich merk’s mir. Vielleicht nutze ich es gegen dich.")
+    except:
+        await ctx.respond("Fehler beim Speichern. Wahrscheinlich weil dein Fakt zu langweilig war.")
+
+# Slash-Befehl /vergiss_mich
+@bot.slash_command(name="vergiss_mich", description="Knurrbert soll alles über dich vergessen.")
+async def vergiss_mich(ctx):
+    user_id = str(ctx.author.id)
+    try:
+        supabase.table("knurrbert_users").delete().eq("user_id", user_id).execute()
+        await ctx.respond("Fein. Alles gelöscht. Ich vergess dich wie 'nen schlechten Witz.")
+    except:
+        await ctx.respond("Konnte dich nicht vergessen. Also bleibst du in meinem Gedächtnis. Pech.")
+
+# Starte Webserver (für UptimeRobot)
 keep_alive()
+
+# Bot starten
 bot.run(discord_token)
