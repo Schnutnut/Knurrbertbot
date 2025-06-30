@@ -40,7 +40,7 @@ try:
     model = "deepseek/deepseek-chat-v3-0324:free"
     print("Konfiguration erfolgreich geladen!")
 except Exception as e:
-    print("Fehler beim Laden der Umgebungsvariablen:", e
+    print("Fehler beim Laden der Umgebungsvariablen:", e)
 
 intents = discord.Intents.default()
 intents.message_content = True
