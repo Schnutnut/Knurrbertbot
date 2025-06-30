@@ -5,6 +5,7 @@ import random
 from flask import Flask
 from threading import Thread
 from supabase import create_client, Client
+from discord.ext import commands
 
 # Webserver für Render/UptimeRobot
 app = Flask('')
@@ -43,9 +44,7 @@ except Exception as e:
 
 intents = discord.Intents.default()
 intents.message_content = True
-from discord.ext import commands
 bot = commands.Bot(command_prefix="/", intents=intents)
-
 
 @bot.event
 async def on_ready():
@@ -69,7 +68,6 @@ async def on_message(message):
             username = str(message.author)
             user_id = str(message.author.id)
 
-            # Hole vorhandene Daten
             existing = supabase.table("knurrbert_users").select("mention_count", "nickname", "facts").eq("user_id", user_id).execute()
             count = 1
             nickname = username
@@ -131,11 +129,13 @@ async def on_message(message):
 
         await message.channel.send(reply)
 
-# Slash-Befehle
-@bot.slash_command(name="info", description="Was Knurrbert über dich denkt.")
-async def info(ctx):
-    user_id = str(ctx.author.id)
-    username = str(ctx.author)
+# Slash-Befehle mit bot.tree.command
+from discord import app_commands
+
+@bot.tree.command(name="info", description="Was Knurrbert über dich denkt.")
+async def info(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    username = str(interaction.user)
     try:
         result = supabase.table("knurrbert_users").select("username", "mention_count", "nickname", "facts").eq("user_id", user_id).execute()
         if result.data:
@@ -147,37 +147,37 @@ async def info(ctx):
             antwort = f"Dich kenn ich nicht. Noch nicht. Vielleicht will ich das auch so lassen."
     except Exception:
         antwort = "Fehler. Datenbank kaputt. Oder ich hab einfach keine Lust."
-    await ctx.respond(antwort)
+    await interaction.response.send_message(antwort)
 
-@bot.slash_command(name="set_nickname", description="Gib dir einen Spitznamen, den Knurrbert benutzt.")
-async def set_nickname(ctx, name: str):
-    user_id = str(ctx.author.id)
+@bot.tree.command(name="set_nickname", description="Gib dir einen Spitznamen, den Knurrbert benutzt.")
+async def set_nickname(interaction: discord.Interaction, name: str):
+    user_id = str(interaction.user.id)
     try:
         supabase.table("knurrbert_users").upsert({"user_id": user_id, "nickname": name}).execute()
-        await ctx.respond(f"Spitzname gespeichert. Ich nenn dich jetzt {name}. Ob du willst oder nicht.")
+        await interaction.response.send_message(f"Spitzname gespeichert. Ich nenn dich jetzt {name}. Ob du willst oder nicht.")
     except:
-        await ctx.respond("Konnte den Mist nicht speichern. Versuch’s später nochmal.")
+        await interaction.response.send_message("Konnte den Mist nicht speichern. Versuch’s später nochmal.")
 
-@bot.slash_command(name="set_fact", description="Sag Knurrbert etwas Persönliches über dich.")
-async def set_fact(ctx, info: str):
-    user_id = str(ctx.author.id)
+@bot.tree.command(name="set_fact", description="Sag Knurrbert etwas Persönliches über dich.")
+async def set_fact(interaction: discord.Interaction, info: str):
+    user_id = str(interaction.user.id)
     try:
         supabase.table("knurrbert_users").upsert({"user_id": user_id, "facts": info}).execute()
-        await ctx.respond("Na gut. Ich merk’s mir. Vielleicht nutze ich es gegen dich.")
+        await interaction.response.send_message("Na gut. Ich merk’s mir. Vielleicht nutze ich es gegen dich.")
     except:
-        await ctx.respond("Fehler beim Speichern. Wahrscheinlich weil dein Fakt zu langweilig war.")
+        await interaction.response.send_message("Fehler beim Speichern. Wahrscheinlich weil dein Fakt zu langweilig war.")
 
-@bot.slash_command(name="vergiss_mich", description="Knurrbert soll alles über dich vergessen.")
-async def vergiss_mich(ctx):
-    user_id = str(ctx.author.id)
+@bot.tree.command(name="vergiss_mich", description="Knurrbert soll alles über dich vergessen.")
+async def vergiss_mich(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
     try:
         supabase.table("knurrbert_users").delete().eq("user_id", user_id).execute()
-        await ctx.respond("Fein. Alles gelöscht. Ich vergess dich wie 'nen schlechten Witz.")
+        await interaction.response.send_message("Fein. Alles gelöscht. Ich vergess dich wie 'nen schlechten Witz.")
     except:
-        await ctx.respond("Konnte dich nicht vergessen. Also bleibst du in meinem Gedächtnis. Pech.")
+        await interaction.response.send_message("Konnte dich nicht vergessen. Also bleibst du in meinem Gedächtnis. Pech.")
 
-@bot.slash_command(name="witz", description="Knurrbert erzählt einen Witz. Oder versucht es zumindest.")
-async def witz(ctx):
+@bot.tree.command(name="witz", description="Knurrbert erzählt einen Witz. Oder versucht es zumindest.")
+async def witz(interaction: discord.Interaction):
     witze = [
         "Warum können Geister so schlecht lügen? Weil man durch sie hindurchsehen kann.",
         "Ich kenne keine Witze. Nur traurige Fakten. Wie dein Internetverlauf.",
@@ -185,10 +185,10 @@ async def witz(ctx):
         "Warum war das Mathebuch traurig? Zu viele Probleme.",
         "Ich erzähl dir keinen Witz. Die Realität ist witzig genug."
     ]
-    await ctx.respond(random.choice(witze))
+    await interaction.response.send_message(random.choice(witze))
 
-@bot.slash_command(name="heul", description="Heul dich aus. Oder lass es Knurrbert tun.")
-async def heul(ctx):
+@bot.tree.command(name="heul", description="Heul dich aus. Oder lass es Knurrbert tun.")
+async def heul(interaction: discord.Interaction):
     antworten = [
         "Oh no… ein Drama in 12 Akten. 🥱",
         "Wenn du heulst, heul leise. Ich hab empfindliche Ohren.",
@@ -196,10 +196,10 @@ async def heul(ctx):
         "Tränen sind Schwäche, die aus dem Gesicht tropft.",
         "Ich fühl mit dir. Ganz tief drinnen. Neben meinem Kaffee."
     ]
-    await ctx.respond(random.choice(antworten))
+    await interaction.response.send_message(random.choice(antworten))
 
-@bot.slash_command(name="kaffee", description="Fordere Knurrbert zum Kaffeetrinken auf.")
-async def kaffee(ctx):
+@bot.tree.command(name="kaffee", description="Fordere Knurrbert zum Kaffeetrinken auf.")
+async def kaffee(interaction: discord.Interaction):
     antworten = [
         "Kaffee? Ich sauf Sarkasmus pur, danke.",
         "Schon wieder? Mein Blutdruck kann das nicht mehr.",
@@ -207,10 +207,10 @@ async def kaffee(ctx):
         "Nur wenn er schwarz ist wie meine Seele.",
         "Ich dachte, du bringst mir endlich was Sinnvolles."
     ]
-    await ctx.respond(random.choice(antworten))
+    await interaction.response.send_message(random.choice(antworten))
 
-@bot.slash_command(name="lob", description="Bekomme ein Knurrbert-Lob. Vielleicht.")
-async def lob(ctx):
+@bot.tree.command(name="lob", description="Bekomme ein Knurrbert-Lob. Vielleicht.")
+async def lob(interaction: discord.Interaction):
     antworten = [
         "Wow, du hast’s geschafft… nichts kaputt zu machen. 👏",
         "Hier hast du dein Lob. Nutz es weise. Oder gar nicht.",
@@ -218,10 +218,11 @@ async def lob(ctx):
         "Ich hab Lob – aber nicht für dich.",
         "Okay, minimaler Respekt. Aber nur ein Hauch."
     ]
-    await ctx.respond(random.choice(antworten))
+    await interaction.response.send_message(random.choice(antworten))
 
 # Starte Webserver (für UptimeRobot)
 keep_alive()
 
 # Bot starten
 bot.run(discord_token)
+
