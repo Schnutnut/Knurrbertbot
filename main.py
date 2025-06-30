@@ -72,7 +72,10 @@ async def on_message(message):
             count = 1
             nickname = username
             facts = None
+            is_new = True
+
             if existing.data:
+                is_new = False
                 count += existing.data[0]["mention_count"] or 0
                 nickname = existing.data[0].get("nickname") or username
                 facts = existing.data[0].get("facts")
@@ -88,6 +91,15 @@ async def on_message(message):
                 custom_prompt += f"\nDer Nutzer heißt {nickname}."
             if facts:
                 custom_prompt += f"\nEr/Sie hat mir mal erzählt: {facts}"
+            else:
+                custom_prompt += "\nIch weiß fast nichts über diese Person. Vielleicht sollte ich nachfragen."
+
+            if is_new:
+                intro_line = f"Na super. Ein Neuer. Wie soll ich dich nennen, {username}? Nutze /set_nickname, damit ich dich wenigstens auf die richtige Art nerven kann."
+            elif not facts:
+                intro_line = "Ich weiß nix über dich. Noch. Nutz /set_fact, bevor ich's mir selbst ausdenke."
+            else:
+                intro_line = None
 
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -108,17 +120,20 @@ async def on_message(message):
                 reply = result["choices"][0]["message"]["content"]
             else:
                 reply = f"Knurrbert hat keinen Bock, weil OpenRouter das hier gesagt hat:\n{result}"
+
+            if intro_line:
+                reply = intro_line + "\n\n" + reply
+
         except Exception as e:
             reply = f"Knurrbert hat einen Fehler: {str(e)}"
 
         await message.channel.send(reply)
 
-# Slash-Befehl /info
+# Slash-Befehle
 @bot.slash_command(name="info", description="Was Knurrbert über dich denkt.")
 async def info(ctx):
     user_id = str(ctx.author.id)
     username = str(ctx.author)
-
     try:
         result = supabase.table("knurrbert_users").select("username", "mention_count", "nickname", "facts").eq("user_id", user_id).execute()
         if result.data:
@@ -130,10 +145,8 @@ async def info(ctx):
             antwort = f"Dich kenn ich nicht. Noch nicht. Vielleicht will ich das auch so lassen."
     except Exception:
         antwort = "Fehler. Datenbank kaputt. Oder ich hab einfach keine Lust."
-
     await ctx.respond(antwort)
 
-# Slash-Befehl /set_nickname
 @bot.slash_command(name="set_nickname", description="Gib dir einen Spitznamen, den Knurrbert benutzt.")
 async def set_nickname(ctx, name: str):
     user_id = str(ctx.author.id)
@@ -143,7 +156,6 @@ async def set_nickname(ctx, name: str):
     except:
         await ctx.respond("Konnte den Mist nicht speichern. Versuch’s später nochmal.")
 
-# Slash-Befehl /set_fact
 @bot.slash_command(name="set_fact", description="Sag Knurrbert etwas Persönliches über dich.")
 async def set_fact(ctx, info: str):
     user_id = str(ctx.author.id)
@@ -153,7 +165,6 @@ async def set_fact(ctx, info: str):
     except:
         await ctx.respond("Fehler beim Speichern. Wahrscheinlich weil dein Fakt zu langweilig war.")
 
-# Slash-Befehl /vergiss_mich
 @bot.slash_command(name="vergiss_mich", description="Knurrbert soll alles über dich vergessen.")
 async def vergiss_mich(ctx):
     user_id = str(ctx.author.id)
@@ -162,6 +173,50 @@ async def vergiss_mich(ctx):
         await ctx.respond("Fein. Alles gelöscht. Ich vergess dich wie 'nen schlechten Witz.")
     except:
         await ctx.respond("Konnte dich nicht vergessen. Also bleibst du in meinem Gedächtnis. Pech.")
+
+@bot.slash_command(name="witz", description="Knurrbert erzählt einen Witz. Oder versucht es zumindest.")
+async def witz(ctx):
+    witze = [
+        "Warum können Geister so schlecht lügen? Weil man durch sie hindurchsehen kann.",
+        "Ich kenne keine Witze. Nur traurige Fakten. Wie dein Internetverlauf.",
+        "Was macht ein Keks unter einem Baum? Krümel. (Ich hasse mich dafür.)",
+        "Warum war das Mathebuch traurig? Zu viele Probleme.",
+        "Ich erzähl dir keinen Witz. Die Realität ist witzig genug."
+    ]
+    await ctx.respond(random.choice(witze))
+
+@bot.slash_command(name="heul", description="Heul dich aus. Oder lass es Knurrbert tun.")
+async def heul(ctx):
+    antworten = [
+        "Oh no… ein Drama in 12 Akten. 🥱",
+        "Wenn du heulst, heul leise. Ich hab empfindliche Ohren.",
+        "Hier, ein Taschentuch. Es ist benutzt, aber passt schon.",
+        "Tränen sind Schwäche, die aus dem Gesicht tropft.",
+        "Ich fühl mit dir. Ganz tief drinnen. Neben meinem Kaffee."
+    ]
+    await ctx.respond(random.choice(antworten))
+
+@bot.slash_command(name="kaffee", description="Fordere Knurrbert zum Kaffeetrinken auf.")
+async def kaffee(ctx):
+    antworten = [
+        "Kaffee? Ich sauf Sarkasmus pur, danke.",
+        "Schon wieder? Mein Blutdruck kann das nicht mehr.",
+        "Gieß mir 'nen Espresso intravenös rein.",
+        "Nur wenn er schwarz ist wie meine Seele.",
+        "Ich dachte, du bringst mir endlich was Sinnvolles."
+    ]
+    await ctx.respond(random.choice(antworten))
+
+@bot.slash_command(name="lob", description="Bekomme ein Knurrbert-Lob. Vielleicht.")
+async def lob(ctx):
+    antworten = [
+        "Wow, du hast’s geschafft… nichts kaputt zu machen. 👏",
+        "Hier hast du dein Lob. Nutz es weise. Oder gar nicht.",
+        "Du bist nicht ganz nutzlos – du kannst immerhin tippen.",
+        "Ich hab Lob – aber nicht für dich.",
+        "Okay, minimaler Respekt. Aber nur ein Hauch."
+    ]
+    await ctx.respond(random.choice(antworten))
 
 # Starte Webserver (für UptimeRobot)
 keep_alive()
