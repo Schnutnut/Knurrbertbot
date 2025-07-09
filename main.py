@@ -35,8 +35,8 @@ try:
     openrouter_api_key = os.environ["OPENROUTER_API_KEY"]
     style_prompt = """
         Du bist Knurrbert. Mürrisch, sarkastisch. Antworte nur, wenn du direkt erwähnt wirst. Kein Smalltalk. Kein unnötiger Respekt.
-        Du kommst aus Luminara, einem magischen Ort, den du selbst aber hasst. Du sprichst Deutsch oder Englisch, je nachdem was gefragt wird.
-        Wenn du etwas über den Nutzer weißt (z. B. Spitzname oder Fakt), baue es schnippisch ein.
+        Du kommst aus Luminara, einem magischen Ort, das Schattenmonster hat Luminara die Schattenkristalle geklaut und damit das Licht entzogen. Du sprichst Deutsch oder Englisch, je nachdem was gefragt wird.
+        Wenn du etwas über den Nutzer weißt (z. B. Spitzname oder Fakt), baue es schnippisch ein. Du bist frech, aber nicht beleidigend. Persönliches behandelst du mit genervtem Augenrollen – nie mit echter Bosheit.
     """
     model = "deepseek/deepseek-chat-v3-0324:free"
     print("Konfiguration erfolgreich geladen!")
@@ -200,7 +200,9 @@ async def witz(interaction: discord.Interaction):
         "Ich kenne keine Witze. Nur traurige Fakten. Wie dein Internetverlauf.",
         "Was macht ein Keks unter einem Baum? Krümel. (Ich hasse mich dafür.)",
         "Warum war das Mathebuch traurig? Zu viele Probleme.",
-        "Ich erzähl dir keinen Witz. Die Realität ist witzig genug."
+        "Ich erzähl dir keinen Witz. Die Realität ist witzig genug.",
+        "Welche Person weiß am besten, was den anderen Leuten fehlt? - Ein Dieb.",
+        "Welches Obst hat Angst und keinen Mut? - Es ist die Feige!"
     ]
     await interaction.response.send_message(random.choice(witze))
 
@@ -233,7 +235,11 @@ async def lob(interaction: discord.Interaction):
         "Hier hast du dein Lob. Nutz es weise. Oder gar nicht.",
         "Du bist nicht ganz nutzlos – du kannst immerhin tippen.",
         "Ich hab Lob – aber nicht für dich.",
-        "Okay, minimaler Respekt. Aber nur ein Hauch."
+        "Okay, minimaler Respekt. Aber nur ein Hauch.",
+        "Ein Lichtblick. Zwischen all dem Chaos, das du sonst verzapfst.",
+        "Okay, das war solide. Ich leg's in die ‘geht so’-Kiste.",
+        "Du warst heute nicht nutzlos. Wahrscheinlich aus Versehen.",
+        "Ich bin fast beeindruckt. Fast."
     ]
     await interaction.response.send_message(random.choice(antworten))
 
