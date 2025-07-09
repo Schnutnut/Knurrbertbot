@@ -68,6 +68,7 @@ async def on_message(message):
             username = str(message.author)
             user_id = str(message.author.id)
 
+            # Hole bekannte Daten über den User
             existing = supabase.table("knurrbert_users").select("mention_count", "nickname", "facts").eq("user_id", user_id).execute()
             count = 1
             nickname = username
@@ -86,6 +87,18 @@ async def on_message(message):
                 "mention_count": count
             }).execute()
 
+            # Speicher die aktuelle Nachricht im Memory-Log
+            supabase.table("knurrbert_memory").insert({
+                "user_id": user_id,
+                "username": username,
+                "message": user_prompt,
+                "timestamp": datetime.utcnow().isoformat()
+            }).execute()
+
+            # Hole die letzten 5 Nachrichten
+            history = supabase.table("knurrbert_memory").select("message").eq("user_id", user_id).order("timestamp", desc=True).limit(5).execute()
+            memory_lines = [x["message"] for x in reversed(history.data)] if history.data else []
+
             custom_prompt = style_prompt
             if nickname or facts:
                 custom_prompt += f"\nDer Nutzer heißt {nickname}."
@@ -94,8 +107,11 @@ async def on_message(message):
             else:
                 custom_prompt += "\nIch weiß fast nichts über diese Person. Vielleicht sollte ich nachfragen."
 
+            if memory_lines:
+                custom_prompt += "\nHier ist unser letztes Gespräch:\n" + "\n".join(memory_lines)
+
             if is_new:
-                intro_line = f"Na super. Ein Neuer. Wie soll ich dich nennen, {username}? Nutze /set_nickname, damit ich dich wenigstens auf die richtige Art nerven kann."
+                intro_line = f"Na super. Ein Neuer. Wie soll ich dich nennen, {username}? Nutze /set_nickname."
             elif not facts:
                 intro_line = "Ich weiß nix über dich. Noch. Nutz /set_fact, bevor ich's mir selbst ausdenke."
             else:
