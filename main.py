@@ -6,6 +6,7 @@ from flask import Flask
 from threading import Thread
 from supabase import create_client, Client
 from discord.ext import commands
+from datetime import datetime
 
 # Webserver für Render/UptimeRobot
 app = Flask('')
